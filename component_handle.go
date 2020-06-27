@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/wise2c-devops/pagoda/database"
+	"github.com/wise2c-dev/pagoda/database"
 
 	"github.com/gin-gonic/gin"
 )

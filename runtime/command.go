@@ -6,8 +6,8 @@ import (
 	"path"
 	"sort"
 
-	"github.com/wise2c-devops/pagoda/database"
-	"github.com/wise2c-devops/pagoda/playbook"
+	"github.com/wise2c-dev/pagoda/database"
+	"github.com/wise2c-dev/pagoda/playbook"
 
 	"github.com/golang/glog"
 )

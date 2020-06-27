@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/wise2c-devops/pagoda/database"
+	"github.com/wise2c-dev/pagoda/database"
 
 	"github.com/golang/glog"
 )

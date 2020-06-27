@@ -1,7 +1,7 @@
 package main
 
-import "github.com/wise2c-devops/pagoda/database"
-import "github.com/wise2c-devops/pagoda/playbook"
+import "github.com/wise2c-dev/pagoda/database"
+import "github.com/wise2c-dev/pagoda/playbook"
 
 type Component struct {
 	database.MetaComponent

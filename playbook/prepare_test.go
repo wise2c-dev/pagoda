@@ -1,7 +1,7 @@
 package playbook
 
 import "testing"
-import "github.com/wise2c-devops/pagoda/database"
+import "github.com/wise2c-dev/pagoda/database"
 
 func TestPreparePlaybooks(t *testing.T) {
 	ds := &DeploySeed{

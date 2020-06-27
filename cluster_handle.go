@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
-	"github.com/wise2c-devops/pagoda/database"
+	"github.com/wise2c-dev/pagoda/database"
 )
 
 func retrieveClusters(c *gin.Context) {

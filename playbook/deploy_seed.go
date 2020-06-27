@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/wise2c-devops/pagoda/database"
+	"github.com/wise2c-dev/pagoda/database"
 )
 
 type DeploySeed map[string]*Component
