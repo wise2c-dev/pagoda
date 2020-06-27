@@ -174,9 +174,6 @@ func (c *commandT) start(config *LaunchParameters) {
 }
 
 func (c *commandT) StartOperate(cluster *database.Cluster, config *LaunchParameters) error {
-	if err := c.acquire(); err != nil {
-		return err
-	}
 	glog.V(3).Infof("begin to install cluster %s", cluster.Name)
 
 	config.Cluster = cluster
@@ -191,7 +188,7 @@ func (c *commandT) StopOperate() {
 
 func (c *commandT) run(w string) {
 	step := c.received[c.currentIndex]
-	cmd := exec.Command("ansible-playbook", c.ansibleFile)
+	cmd := exec.Command("ansible-playbook", "-i", "clusters/" + c.cluster.ID, c.ansibleFile)
 	cmd.Dir = path.Join(
 		w,
 		step+playbook.PlaybookSuffix,
@@ -213,7 +210,6 @@ func (c *commandT) run(w string) {
 }
 
 func (c *commandT) complete(code completeCode) {
-	defer c.release()
 	defer c.reset()
 
 	switch code {

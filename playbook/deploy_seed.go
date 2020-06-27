@@ -21,6 +21,7 @@ func NewDeploySeed(c *database.Cluster, workDir string) *DeploySeed {
 			path.Join(workDir, cp.Name+PlaybookSuffix, cp.Version),
 			cs[cp.Name],
 		)
+		cs[cp.Name].Inherent["cluster_id"] = c.ID
 	}
 
 	return &cs

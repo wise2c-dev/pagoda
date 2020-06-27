@@ -28,7 +28,9 @@ const (
 
 func PreparePlaybooks(dir string, ds *DeploySeed) error {
 	for k, v := range map[string]*Component(*ds) {
-		if err := preparePlaybook(path.Join(dir, k+PlaybookSuffix, v.Version), ds); err != nil {
+		clusterID := fmt.Sprintf("%v", v.Inherent["cluster_id"])
+		playbookRootPath := path.Join(dir, k+PlaybookSuffix, v.Version)
+		if err := preparePlaybook(clusterID, playbookRootPath, ds); err != nil {
 			return err
 		}
 	}
@@ -36,8 +38,8 @@ func PreparePlaybooks(dir string, ds *DeploySeed) error {
 	return nil
 }
 
-func preparePlaybook(name string, ds *DeploySeed) error {
-	tps, err := getTemplatePath(name)
+func preparePlaybook(clusterID, pbRootPath string, ds *DeploySeed) error {
+	tps, err := getTemplatePath(clusterID, pbRootPath)
 	if err != nil {
 		return err
 	}
@@ -62,78 +64,83 @@ func applyTemplate(t *Template, ds *DeploySeed) error {
 	if err != nil {
 		return fmt.Errorf("read template src file error: %v", err)
 	}
-
-	tp := template.Must(template.New("ansible").Funcs(fns).Parse(string(content)))
-	// tp.Option("missingkey=zero")
-	err = tp.Execute(file, ds)
-	if err != nil {
-		return fmt.Errorf("execute template for %s error: %v", t.Dest, err)
+	if strings.Contains(t.Src, tmplSuffix) {
+		tp := template.Must(template.New("ansible").Funcs(fns).Parse(string(content)))
+		// tp.Option("missingkey=zero")
+		err = tp.Execute(file, ds)
+		if err != nil {
+			return fmt.Errorf("execute template for %s error: %v", t.Dest, err)
+		}
+	} else {
+		if _, err = file.Write(content); err != nil {
+			return fmt.Errorf("write file for %s error: %v", t.Dest, err)
+		}
 	}
-
 	return nil
 }
 
 // getTemplatePath - check playbook, get every template path & output file
-func getTemplatePath(name string) ([]*Template, error) {
-	if err := checkPlaybook(name); err != nil {
+func getTemplatePath(clusterID, bpRootPath string) ([]*Template, error) {
+	if err := createClusterPath(clusterID, bpRootPath); err != nil {
 		return nil, err
 	}
 
-	files, err := ioutil.ReadDir(path.Join(name, tmplDir))
+	files, err := ioutil.ReadDir(path.Join(bpRootPath, tmplDir))
 	if err != nil {
-		return nil, fmt.Errorf("read dir %s error: %v", name, err)
+		return nil, fmt.Errorf("read dir %s error: %v", bpRootPath, err)
 	}
 
 	tps := make([]*Template, 0, len(files))
 	for _, f := range files {
-		if f.Name() == hostsTmpl {
-			t := &Template{
-				Src:  path.Join(name, tmplDir, f.Name()),
-				Dest: path.Join(name, hostsFile),
-			}
-			tps = append(tps, t)
-		} else {
-			t := &Template{
-				Src:  path.Join(name, tmplDir, f.Name()),
-				Dest: path.Join(name, ansibleGroupDir, strings.TrimSuffix(f.Name(), tmplSuffix)),
-			}
-			tps = append(tps, t)
+		var dest string
+		if !strings.Contains(f.Name(), tmplSuffix) {
+			dest = path.Join(bpRootPath, "clusters", clusterID, f.Name())
 		}
+		if f.Name() == hostsTmpl {
+			dest = path.Join(bpRootPath, "clusters", clusterID, hostsFile)
+		} else {
+			dest = path.Join(bpRootPath, "clusters", clusterID, ansibleGroupDir, strings.TrimSuffix(f.Name(), tmplSuffix))
+		}
+		t := &Template{
+			Src:  path.Join(bpRootPath, tmplDir, f.Name()),
+			Dest: dest,
+		}
+		tps = append(tps, t)
 	}
 
 	return tps, nil
 }
 
-func checkPlaybook(name string) error {
-	files, err := ioutil.ReadDir(path.Join(name, tmplDir))
+func createClusterPath(clusterID, pbRootPath string) error {
+	// playbookRootPath: /{componentName}-playbook/{version}
+	// 01. check template path: /{playbookRootPath}/yat
+	tmplFiles, err := ioutil.ReadDir(path.Join(pbRootPath, tmplDir))
 	if err != nil {
-		return fmt.Errorf("check %s error: %v", name, err)
+		return fmt.Errorf("check path %s error: %v", pbRootPath, err)
 	}
-
-	var hasGroupVars, hasHostsGotmpl bool
-	d, err := os.Stat(path.Join(name, ansibleGroupDir))
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-	} else if d.IsDir() {
-		hasGroupVars = true
-	}
-
-	for _, f := range files {
-		if f.Name() != hostsTmpl && !hasGroupVars {
-			return fmt.Errorf("have group vars template but have not group directory")
-		}
-
-		if f.Name() == hostsTmpl {
-			hasHostsGotmpl = true
+	// 02. check path: /{playbookRootPath}/clusters/{clusterID}, if not exist, create it.
+	clusterPath := fmt.Sprintf("%s/clusters/%s", pbRootPath, clusterID)
+	if _, err := os.Stat(clusterPath); os.IsNotExist(err) {
+		if err = os.MkdirAll(clusterPath, 0755); err != nil {
+			return fmt.Errorf("create cluster path %s error: %v", clusterPath, err)
 		}
 	}
-
-	if !hasHostsGotmpl {
-		return fmt.Errorf("have not %s", hostsTmpl)
+	// 03. if check group vars is exist, create path: /{playbookRootPath}/clusters/{clusterID}/group_vars/
+	var hasGroupVarsPath, hasHostsTmpl bool
+	for _, f := range tmplFiles {
+		if f.Name() != hostsTmpl && !hasGroupVarsPath {
+			if err = os.MkdirAll(clusterPath + "/" + ansibleGroupDir, 0755); err != nil {
+				return fmt.Errorf("create group vars path %s error: %v", clusterPath, err)
+			}
+			hasGroupVarsPath = true
+		} else if f.Name() == hostsTmpl {
+			hasHostsTmpl = true
+		}
 	}
-
+	// 04. check hosts template
+	if !hasHostsTmpl {
+		return fmt.Errorf("not found %s", hostsTmpl)
+	}
 	return nil
 }
 
